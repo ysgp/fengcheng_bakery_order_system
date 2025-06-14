@@ -3,7 +3,7 @@
 // 從 firebase-init.js 導入 db 物件
 import { db } from './firebase-init.js';
 // 導入 Firestore 相關函數
-import { collection, addDoc, getDocs, doc, updateDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, getDocs, doc, updateDoc, serverTimestamp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
     const orderForm = document.getElementById('orderForm');
@@ -28,154 +28,169 @@ document.addEventListener('DOMContentLoaded', () => {
     let orderItemsCount = 0;
     let currentOrderData = null; // 用來儲存確認前的訂單數據
     
+    // 從 Firestore 獲取品項選項 (包含價格資訊)
     let productOptions = {
         cakeType: [],
         cakeSize: [],
         cakeFilling: []
     };
 
-    // 獲取品項選項
+    // 函數：獲取品項選項
     async function fetchProductOptions() {
         try {
-            const querySnapshot = await getDocs(collection(db, "products"));
+            // 直接從 Firestore 獲取 products 集合
+            const productsSnapshot = await getDocs(collection(db, "products"));
             productOptions = {
                 cakeType: [],
                 cakeSize: [],
                 cakeFilling: []
-            };
-            querySnapshot.forEach((doc) => {
+            }; // 重置
+            productsSnapshot.forEach(doc => {
                 const product = { id: doc.id, ...doc.data() };
-                if (productOptions[product.type]) {
-                    productOptions[product.type].push(product);
+                if (product.type === 'cakeType') {
+                    productOptions.cakeType.push(product);
+                } else if (product.type === 'cakeSize') {
+                    productOptions.cakeSize.push(product);
+                } else if (product.type === 'cakeFilling') {
+                    productOptions.cakeFilling.push(product);
                 }
             });
-            renderOrderItemOptions(); // 渲染品項選擇框
-            console.log("產品選項載入成功:", productOptions);
+            // 確保每次載入品項後都至少有一個品項選擇器
+            if (orderItemsCount === 0) { // 只有在沒有任何品項時才自動增加一個
+                addOrderItem();
+            } else {
+                // 如果已經有品項了，更新現有品項的選項
+                document.querySelectorAll('.order-item').forEach((itemDiv) => {
+                    updateProductOptionsInItem(itemDiv);
+                });
+            }
+            calculateTotalAmount(); // 重新計算總金額以防萬一
         } catch (error) {
             console.error('獲取品項選項失敗：', error);
-            alert('載入品項時發生錯誤，請稍後再試。');
+            alert('無法載入品項選項，請檢查網路連線或稍後再試。');
         }
     }
 
-    // 渲染單個品項的 HTML 結構
-    function renderOrderItemOptions() {
-        // 清除現有品項（除了標題和按鈕）
-        // 為了避免重複渲染，我們每次重新渲染時先清空再添加
-        const existingItems = orderItemsContainer.querySelectorAll('.order-item');
-        existingItems.forEach(item => item.remove());
+    // 函數：更新單個品項選擇器的選項
+    function updateProductOptionsInItem(itemDiv) {
+        const cakeTypeSelect = itemDiv.querySelector('.cake-type-select');
+        const cakeSizeSelect = itemDiv.querySelector('.cake-size-select');
+        const cakeFillingSelect = itemDiv.querySelector('.cake-filling-select');
 
-        if (orderItemsCount === 0) { // 如果沒有品項，則添加一個空的
-            addOrderItem();
-        } else { // 如果有，則根據目前的 orderItemsCount 重新添加
-            const currentItems = orderItemsCount; // 記錄當前數量
-            orderItemsCount = 0; // 重置計數器以確保 addOrderItem 從 1 開始
-            for (let i = 0; i < currentItems; i++) {
-                addOrderItem(); // 重新添加現有品項數量
-            }
-        }
+        const currentCakeType = cakeTypeSelect.value;
+        const currentCakeSize = cakeSizeSelect.value;
+        const currentCakeFilling = cakeFillingSelect.value;
+
+        // 清空現有選項
+        cakeTypeSelect.innerHTML = '<option value="">請選擇蛋糕種類</option>';
+        cakeSizeSelect.innerHTML = '<option value="">請選擇尺寸</option>';
+        cakeFillingSelect.innerHTML = '<option value="">請選擇餡料</option>';
+
+        // 重新填充選項
+        productOptions.cakeType.forEach(type => {
+            const option = document.createElement('option');
+            option.value = type.id;
+            option.textContent = type.name;
+            cakeTypeSelect.appendChild(option);
+        });
+        productOptions.cakeSize.forEach(size => {
+            const option = document.createElement('option');
+            option.value = size.id;
+            option.textContent = size.name;
+            cakeSizeSelect.appendChild(option);
+        });
+        productOptions.cakeFilling.forEach(filling => {
+            const option = document.createElement('option');
+            option.value = filling.id;
+            option.textContent = filling.name;
+            cakeFillingSelect.appendChild(option);
+        });
+
+        // 恢復之前的選擇
+        cakeTypeSelect.value = currentCakeType;
+        cakeSizeSelect.value = currentCakeSize;
+        cakeFillingSelect.value = currentCakeFilling;
     }
 
 
+    // 函數：增加品項
     function addOrderItem() {
         orderItemsCount++;
         const itemDiv = document.createElement('div');
         itemDiv.classList.add('order-item');
-        itemDiv.dataset.id = orderItemsCount;
-
+        itemDiv.dataset.id = orderItemsCount; // 為每個品項設定一個唯一ID
         itemDiv.innerHTML = `
-            <h3>品項 ${orderItemsCount} <button type="button" class="remove-item-btn" data-id="${orderItemsCount}">X</button></h3>
+            <h3>品項 ${orderItemsCount} <button type="button" class="removeItemBtn">－ 移除品項</button></h3>
             <label for="cakeType${orderItemsCount}">蛋糕種類：</label>
-            <select id="cakeType${orderItemsCount}" class="cake-type" required>
-                <option value="">請選擇</option>
-                ${productOptions.cakeType.map(type => `<option value="${type.id}" data-price="${type.price}">${type.name}</option>`).join('')}
+            <select id="cakeType${orderItemsCount}" class="cake-type-select" required>
+                <option value="">請選擇蛋糕種類</option>
+                ${productOptions.cakeType.map(type => `<option value="${type.id}">${type.name}</option>`).join('')}
             </select><br><br>
 
             <label for="cakeSize${orderItemsCount}">尺寸：</label>
-            <select id="cakeSize${orderItemsCount}" class="cake-size" required>
-                <option value="">請選擇</option>
-                ${productOptions.cakeSize.map(size => `<option value="${size.id}" data-price="${size.price}">${size.name}</option>`).join('')}
+            <select id="cakeSize${orderItemsCount}" class="cake-size-select" required>
+                <option value="">請選擇尺寸</option>
+                ${productOptions.cakeSize.map(size => `<option value="${size.id}">${size.name}</option>`).join('')}
             </select><br><br>
 
             <label for="cakeFilling${orderItemsCount}">餡料：</label>
-            <select id="cakeFilling${orderItemsCount}" class="cake-filling" required>
-                <option value="">請選擇</option>
+            <select id="cakeFilling${orderItemsCount}" class="cake-filling-select" required>
+                <option value="">請選擇餡料</option>
                 ${productOptions.cakeFilling.map(filling => `<option value="${filling.id}">${filling.name}</option>`).join('')}
             </select><br><br>
 
             <label for="quantity${orderItemsCount}">數量：</label>
-            <input type="number" id="quantity${orderItemsCount}" class="quantity" value="1" min="1" required><br><br>
+            <input type="number" id="quantity${orderItemsCount}" class="quantity-input" min="1" value="1" required><br><br>
         `;
         orderItemsContainer.appendChild(itemDiv);
 
-        // 為新添加的品項綁定事件監聽器，以便計算總金額
-        itemDiv.querySelectorAll('.cake-type, .cake-size, .quantity').forEach(element => {
+        // 為新增加的品項綁定事件監聽器
+        itemDiv.querySelector('.removeItemBtn').addEventListener('click', (event) => {
+            event.target.closest('.order-item').remove();
+            calculateTotalAmount(); // 移除後重新計算
+        });
+        itemDiv.querySelectorAll('select, input[type="number"]').forEach(element => {
             element.addEventListener('change', calculateTotalAmount);
-            element.addEventListener('input', calculateTotalAmount); // 處理數量直接輸入
+            element.addEventListener('input', calculateTotalAmount); // 處理數量輸入
         });
-
-        itemDiv.querySelector('.remove-item-btn').addEventListener('click', removeOrderItem);
-
-        calculateTotalAmount(); // 每次添加品項後重新計算總金額
     }
 
-    function removeOrderItem(event) {
-        const itemId = event.target.dataset.id;
-        document.querySelector(`.order-item[data-id="${itemId}"]`).remove();
-        // 重新編號剩餘的品項，保持順序
-        orderItemsCount = 0; // 重置計數器
-        document.querySelectorAll('.order-item').forEach((itemDiv, index) => {
-            orderItemsCount++;
-            itemDiv.dataset.id = orderItemsCount;
-            itemDiv.querySelector('h3').innerHTML = `品項 ${orderItemsCount} <button type="button" class="remove-item-btn" data-id="${orderItemsCount}">X</button>`;
-            itemDiv.querySelector('.remove-item-btn').dataset.id = orderItemsCount;
-            // 更新相關聯的 label for 和 input/select id
-            const oldId = index + 1; // 假設舊 ID 是基於 1 的順序
-            itemDiv.innerHTML = itemDiv.innerHTML.replace(new RegExp(`cakeType${oldId}`, 'g'), `cakeType${orderItemsCount}`)
-                                                .replace(new RegExp(`cakeSize${oldId}`, 'g'), `cakeSize${orderItemsCount}`)
-                                                .replace(new RegExp(`cakeFilling${oldId}`, 'g'), `cakeFilling${orderItemsCount}`)
-                                                .replace(new RegExp(`quantity${oldId}`, 'g'), `quantity${orderItemsCount}`);
-        });
-        calculateTotalAmount(); // 重新計算總金額
-    }
-
-    // 計算總金額
+    // 函數：計算總金額
     function calculateTotalAmount() {
         let total = 0;
         document.querySelectorAll('.order-item').forEach(itemDiv => {
-            const cakeTypeSelect = itemDiv.querySelector('.cake-type');
-            const cakeSizeSelect = itemDiv.querySelector('.cake-size');
-            const quantityInput = itemDiv.querySelector('.quantity');
+            const cakeTypeId = itemDiv.querySelector('.cake-type-select').value;
+            const cakeSizeId = itemDiv.querySelector('.cake-size-select').value;
+            const quantity = parseInt(itemDiv.querySelector('.quantity-input').value) || 0;
 
-            const selectedTypeOption = cakeTypeSelect.options[cakeTypeSelect.selectedIndex];
-            const selectedSizeOption = cakeSizeSelect.options[cakeSizeSelect.selectedIndex];
+            const selectedCakeType = productOptions.cakeType.find(type => type.id === cakeTypeId);
+            const selectedCakeSize = productOptions.cakeSize.find(size => size.id === cakeSizeId);
 
-            const typePrice = selectedTypeOption && selectedTypeOption.dataset.price ? parseFloat(selectedTypeOption.dataset.price) : 0;
-            const sizePrice = selectedSizeOption && selectedSizeOption.dataset.price ? parseFloat(selectedSizeOption.dataset.price) : 0;
-            const quantity = parseInt(quantityInput.value) || 0;
-
-            if (typePrice > 0 && sizePrice > 0 && quantity > 0) {
-                total += (typePrice + sizePrice) * quantity;
+            if (selectedCakeType && selectedCakeSize) {
+                total += (selectedCakeType.price + selectedCakeSize.price) * quantity;
             }
         });
         totalAmountDisplay.textContent = total;
     }
 
-    // 更新姓名後綴 (先生/小姐)
+
+    addItemBtn.addEventListener('click', addOrderItem);
+
+    // 處理客戶稱謂後綴
+    customerGenderSelect.addEventListener('change', updateNameSuffix);
+    customerNameInput.addEventListener('input', updateNameSuffix);
+
     function updateNameSuffix() {
-        const name = customerNameInput.value.trim();
-        const gender = customerGenderSelect.value;
-        if (name) {
-            nameSuffix.textContent = ` ${gender}`;
+        const customerName = customerNameInput.value.trim();
+        const customerGender = customerGenderSelect.value;
+        if (customerName) {
+            nameSuffix.textContent = customerGender;
         } else {
             nameSuffix.textContent = '';
         }
     }
 
-    // 監聽客戶姓名和稱謂變化
-    customerNameInput.addEventListener('input', updateNameSuffix);
-    customerGenderSelect.addEventListener('change', updateNameSuffix);
-
-    // 監聽是否需要送貨的 checkbox
+    // 送貨選項的顯示/隱藏
     needsDeliveryCheckbox.addEventListener('change', () => {
         if (needsDeliveryCheckbox.checked) {
             deliveryInfoDiv.style.display = 'block';
@@ -186,107 +201,101 @@ document.addEventListener('DOMContentLoaded', () => {
         } else {
             deliveryInfoDiv.style.display = 'none';
             pickupInfoDiv.style.display = 'block';
-            pickupTimeInput.setAttribute('required', 'required');
             deliveryTimeInput.removeAttribute('required');
             deliveryAddressInput.removeAttribute('required');
+            pickupTimeInput.setAttribute('required', 'required');
         }
     });
 
-    // 提交訂單表單
-    orderForm.addEventListener('submit', (event) => {
+    // 表單提交事件
+    orderForm.addEventListener('submit', async (event) => {
         event.preventDefault();
 
-        // 收集訂單品項數據
+        // 收集訂單品項
         const items = [];
         let isValid = true;
         document.querySelectorAll('.order-item').forEach(itemDiv => {
-            const cakeTypeSelect = itemDiv.querySelector('.cake-type');
-            const cakeSizeSelect = itemDiv.querySelector('.cake-size');
-            const cakeFillingSelect = itemDiv.querySelector('.cake-filling');
-            const quantityInput = itemDiv.querySelector('.quantity');
+            const cakeTypeId = itemDiv.querySelector('.cake-type-select').value;
+            const cakeSizeId = itemDiv.querySelector('.cake-size-select').value;
+            const cakeFillingId = itemDiv.querySelector('.cake-filling-select').value;
+            const quantity = parseInt(itemDiv.querySelector('.quantity-input').value);
 
-            if (!cakeTypeSelect.value || !cakeSizeSelect.value || !cakeFillingSelect.value || !quantityInput.value) {
+            const selectedCakeType = productOptions.cakeType.find(type => type.id === cakeTypeId);
+            const selectedCakeSize = productOptions.cakeSize.find(size => size.id === cakeSizeId);
+            const selectedCakeFilling = productOptions.cakeFilling.find(filling => filling.id === cakeFillingId);
+
+            if (!selectedCakeType || !selectedCakeSize || !selectedCakeFilling || isNaN(quantity) || quantity <= 0) {
                 isValid = false;
+                alert('請確保所有蛋糕品項都已選擇且數量有效。');
                 return;
             }
 
-            const selectedType = productOptions.cakeType.find(p => p.id === cakeTypeSelect.value);
-            const selectedSize = productOptions.cakeSize.find(p => p.id === cakeSizeSelect.value);
-            const selectedFilling = productOptions.cakeFilling.find(p => p.id === cakeFillingSelect.value);
-
-
             items.push({
-                cakeType: {
-                    id: selectedType.id,
-                    name: selectedType.name,
-                    price: selectedType.price
-                },
-                cakeSize: {
-                    id: selectedSize.id,
-                    name: selectedSize.name,
-                    price: selectedSize.price
-                },
-                cakeFilling: {
-                    id: selectedFilling.id,
-                    name: selectedFilling.name
-                },
-                quantity: parseInt(quantityInput.value)
+                cakeType: { id: selectedCakeType.id, name: selectedCakeType.name, price: selectedCakeType.price },
+                cakeSize: { id: selectedCakeSize.id, name: selectedCakeSize.name, price: selectedCakeSize.price },
+                cakeFilling: { id: selectedCakeFilling.id, name: selectedCakeFilling.name },
+                quantity: quantity
             });
         });
 
-        if (!isValid) {
-            alert('請確保所有訂單品項資訊都已填寫完整！');
-            return;
-        }
-        if (items.length === 0) {
-            alert('請至少新增一個訂單品項！');
-            return;
-        }
+        if (!isValid) return;
 
-        // 收集客戶資訊
         const customerName = customerNameInput.value.trim();
-        const customerPhone = document.getElementById('customerPhone').value.trim();
         const customerGender = customerGenderSelect.value;
+        const customerPhone = document.getElementById('customerPhone').value.trim();
         const paymentStatus = document.getElementById('paymentStatus').value;
-        const notes = document.getElementById('notes').value.trim();
         const needsDelivery = needsDeliveryCheckbox.checked;
+        const notes = document.getElementById('notes').value.trim();
+        const totalAmount = parseFloat(totalAmountDisplay.textContent);
 
         let deliveryAddress = '';
-        let deliveryTime = '';
-        let pickupDateTime = '';
+        let deliveryTime = null;
+        let pickupDateTime = null;
 
         if (needsDelivery) {
             deliveryAddress = deliveryAddressInput.value.trim();
             deliveryTime = deliveryTimeInput.value;
             if (!deliveryAddress || !deliveryTime) {
-                alert('請填寫完整的送貨資訊 (地址和時間)。');
+                alert('請填寫完整的送貨資訊。');
                 return;
             }
+            deliveryTime = new Date(deliveryTime); // 轉換為 Date 物件
         } else {
             pickupDateTime = pickupTimeInput.value;
             if (!pickupDateTime) {
-                alert('請填寫完整的取貨時間。');
+                alert('請填寫取貨時間。');
                 return;
             }
+            pickupDateTime = new Date(pickupDateTime); // 轉換為 Date 物件
         }
 
-        const totalAmount = parseFloat(totalAmountDisplay.textContent);
+        // 檢查日期是否在未來
+        const now = new Date();
+        now.setSeconds(0,0); // 忽略秒和毫秒，更精確比較
+        
+        let targetTime = needsDelivery ? deliveryTime : pickupDateTime;
+        if (targetTime && targetTime <= now) {
+            alert(needsDelivery ? '送貨抵達時間' : '取貨時間' + '必須是未來的時間。');
+            return;
+        }
+
 
         currentOrderData = {
-            customerName,
-            customerPhone,
-            customerGender,
-            items,
-            totalAmount,
-            paymentStatus,
-            needsDelivery,
-            deliveryAddress: needsDelivery ? deliveryAddress : null,
-            deliveryTime: needsDelivery ? deliveryTime : null,
-            pickupDateTime: needsDelivery ? null : pickupDateTime,
-            notes
+            customerName: customerName,
+            customerGender: customerGender,
+            customerPhone: customerPhone,
+            paymentStatus: paymentStatus,
+            needsDelivery: needsDelivery,
+            deliveryAddress: deliveryAddress,
+            deliveryTime: deliveryTime ? deliveryTime.toISOString() : null, // 存儲為 ISO 字符串
+            pickupDateTime: pickupDateTime ? pickupDateTime.toISOString() : null, // 存儲為 ISO 字符串
+            notes: notes,
+            items: items,
+            totalAmount: totalAmount,
+            orderStatus: '尚未製作', // 預設訂單狀態
+            createdAt: serverTimestamp() // 使用 Firestore 的時間戳
         };
 
-        // 顯示確認模態框
         showConfirmationModal(currentOrderData);
     });
 
@@ -298,6 +307,10 @@ document.addEventListener('DOMContentLoaded', () => {
             </li>
         `).join('');
 
+        const dateTimeInfo = orderData.needsDelivery
+            ? `送貨地址: ${orderData.deliveryAddress}<br>送貨抵達時間: ${orderData.deliveryTime ? new Date(orderData.deliveryTime).toLocaleString() : '未設定'}`
+            : `取貨時間: ${orderData.pickupDateTime ? new Date(orderData.pickupDateTime).toLocaleString() : '未設定'}`;
+
         confirmationDetails.innerHTML = `
             <p><strong>客戶姓名:</strong> ${orderData.customerName} ${orderData.customerGender}</p>
             <p><strong>客戶電話:</strong> ${orderData.customerPhone}</p>
@@ -305,20 +318,47 @@ document.addEventListener('DOMContentLoaded', () => {
             <p><strong>總金額:</strong> ${orderData.totalAmount} 元</p>
             <h3>訂購品項:</h3>
             <ul>${itemsHtml}</ul>
-            <p><strong>${orderData.needsDelivery ? '送貨地址' : '取貨時間'}:</strong> ${orderData.needsDelivery ? orderData.deliveryAddress : new Date(orderData.pickupDateTime).toLocaleString()}</p>
-            ${orderData.needsDelivery ? `<p><strong>送貨抵達時間:</strong> ${new Date(orderData.deliveryTime).toLocaleString()}</p>` : ''}
+            <p><strong>${dateTimeInfo}</strong></p>
             <p><strong>備註:</strong> ${orderData.notes || '無'}</p>
+            <p><strong>訂單狀態:</strong> ${orderData.orderStatus}</p>
         `;
         orderConfirmationModal.style.display = 'block';
     }
 
-    // 編輯按鈕：隱藏模態框，返回表單編輯
+    // 編輯按鈕：隱藏模態框，返回編輯
     editOrderBtn.addEventListener('click', () => {
-        orderConfirmationModal.style.display = 'none';
+        orderConfirmationModal.style.display = 'none'; // 隱藏 Modal 返回編輯
     });
 
-    addItemBtn.addEventListener('click', addOrderItem);
+    // 確認送出按鈕：實際將資料寫入 Firestore
+    confirmOrderBtn.addEventListener('click', async () => {
+        try {
+            // 將訂單資料新增到 Firestore 的 'orders' 集合中
+            const docRef = await addDoc(collection(db, "orders"), currentOrderData);
+            alert('訂單建立成功！訂單ID: ' + docRef.id);
+            orderForm.reset(); // 重置表單
+            orderItemsContainer.innerHTML = '<h2>蛋糕品項 <button type="button" id="addItemBtn">＋ 增加品項</button></h2>'; // 清空品項
+            document.getElementById('addItemBtn').addEventListener('click', addOrderItem); // 重新綁定
+            fetchProductOptions(); // 重新載入品項並添加初始品項
+            needsDeliveryCheckbox.checked = false; // 重置送貨選項
+            deliveryInfoDiv.style.display = 'none';
+            pickupInfoDiv.style.display = 'block'; // 預設顯示取貨資訊
+            pickupTimeInput.setAttribute('required', 'required'); // 確保取貨時間為必填
+            deliveryTimeInput.removeAttribute('required');
+            deliveryAddressInput.removeAttribute('required');
+            updateNameSuffix(); // 清空性別後綴顯示
+            calculateTotalAmount(); // 重置總金額顯示為 0
+        } catch (error) {
+            console.error('建立訂單錯誤：', error);
+            alert('建立訂單失敗：' + error.message);
+        } finally {
+            orderConfirmationModal.style.display = 'none'; // 無論成功失敗都隱藏 Modal
+        }
+    });
 
-    // 初始化時載入品項選項並添加一個預設品項
+    // 頁面載入時先獲取品項選項
     fetchProductOptions();
+    updateNameSuffix(); // 初始顯示清空稱謂
+    calculateTotalAmount(); // 初始顯示總金額為 0
+
 });

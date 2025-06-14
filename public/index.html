@@ -34,17 +34,18 @@
                 <input type="text" id="customerName" required>
                 <span id="nameSuffix"></span><br><br>
 
-                <label for="customerPhone">客戶電話：</label>
-                <input type="tel" id="customerPhone" required><br><br>
-
-                <label for="customerGender">客戶稱謂：</label>
-                <select id="customerGender">
+                <label for="customerGender">稱謂：</label>
+                <select id="customerGender" required>
+                    <option value="">請選擇</option>
                     <option value="先生">先生</option>
                     <option value="小姐">小姐</option>
                     <option value="女士">女士</option>
-                    <option value="小姐/先生">小姐/先生</option>
+                    <option value="先生/女士">先生/女士 (不確定)</option>
                 </select><br><br>
 
+                <label for="customerPhone">客戶電話：</label>
+                <input type="tel" id="customerPhone" pattern="[0-9]{10}" placeholder="0912345678" required><br><br>
+                
                 <label for="paymentStatus">付款狀態：</label>
                 <select id="paymentStatus" required>
                     <option value="已付款">已付款</option>

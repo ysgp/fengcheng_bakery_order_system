@@ -3,7 +3,7 @@
 // 從 firebase-init.js 導入 db 物件
 import { db } from './firebase-init.js';
 // 導入 Firestore 相關函數
-import { collection, getDocs, doc, updateDoc, query, where, orderBy } from "firebase/firestore";
+import { collection, getDocs, doc, updateDoc, query, where, orderBy } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
 document.addEventListener('DOMContentLoaded', () => {
     const todayPendingOrdersSpan = document.getElementById('todayPendingOrders');
@@ -34,80 +34,118 @@ document.addEventListener('DOMContentLoaded', () => {
             let tomorrowDueCount = 0;
             let overdueUncompletedCount = 0;
 
-            const recentOrders = []; // 今日和明日的訂單
-            const allPendingOrders = []; // 所有待處理、製作中、已完成但未取/送達的訂單
+            const recentOrders = []; 
+            const allPendingOrders = []; 
 
             orders.forEach(order => {
-                // 將 Firestore Timestamp 轉換為 JavaScript Date 對象
-                const pickupOrDeliveryDate = order.needsDelivery && order.deliveryTime
-                    ? order.deliveryTime.toDate()
-                    : (order.pickupDateTime ? order.pickupDateTime.toDate() : null);
-
-                // 只考慮未完成或未取消的訂單
+                // 過濾掉已完成或已取消的訂單
                 if (order.orderStatus === '已取貨/送達' || order.orderStatus === '已取消') {
                     return;
                 }
 
-                allPendingOrders.push(order); // 將所有未完成訂單加入列表
+                // 將時間戳轉換為 Date 物件
+                let orderDateTime = null;
+                if (order.needsDelivery && order.deliveryTime) {
+                    orderDateTime = new Date(order.deliveryTime);
+                } else if (!order.needsDelivery && order.pickupDateTime) {
+                    orderDateTime = new Date(order.pickupDateTime);
+                }
 
-                if (pickupOrDeliveryDate) {
-                    const orderDate = new Date(pickupOrDeliveryDate.getFullYear(), pickupOrDeliveryDate.getMonth(), pickupOrDeliveryDate.getDate());
+                if (!orderDateTime) {
+                    console.warn(`訂單 ${order.id} 沒有有效的取貨/送貨時間，將跳過處理。`);
+                    return;
+                }
+                
+                // 重置訂單日期時間到當天開始，以便日期比較
+                const orderDateStart = new Date(orderDateTime.getFullYear(), orderDateTime.getMonth(), orderDateTime.getDate());
 
-                    // 今日待處理
-                    if (orderDate.getTime() === todayStart.getTime()) {
-                        todayPendingCount++;
+                // 計算今日待處理
+                if (orderDateStart.getTime() === todayStart.getTime()) {
+                    todayPendingCount++;
+                    if (orderDateTime >= now) { // 只顯示尚未發生的今日訂單
                         recentOrders.push(order);
-                    }
-                    // 明日到期
-                    else if (orderDate.getTime() === tomorrowStart.getTime()) {
-                        tomorrowDueCount++;
-                        recentOrders.push(order);
-                    }
-                    // 逾期未完成
-                    else if (orderDate.getTime() < todayStart.getTime()) {
-                        overdueUncompletedCount++;
                     }
                 }
+                // 計算明日到期
+                if (orderDateStart.getTime() === tomorrowStart.getTime()) {
+                    tomorrowDueCount++;
+                    recentOrders.push(order);
+                }
+                // 計算逾期未完成
+                if (orderDateStart < todayStart) { // 日期在今天之前
+                    overdueUncompletedCount++;
+                }
+
+                // 所有待處理訂單
+                allPendingOrders.push(order);
             });
 
             todayPendingOrdersSpan.textContent = todayPendingCount;
             tomorrowDueOrdersSpan.textContent = tomorrowDueCount;
             overdueUncompletedOrdersSpan.textContent = overdueUncompletedCount;
 
-            displayOrders(recentOrders, recentOrdersListDiv);
-            displayOrders(allPendingOrders, allPendingOrdersListDiv);
+            // 顯示近期訂單 (今日和明日的，按時間排序)
+            recentOrders.sort((a, b) => {
+                const timeA = a.needsDelivery ? new Date(a.deliveryTime) : new Date(a.pickupDateTime);
+                const timeB = b.needsDelivery ? new Date(b.deliveryTime) : new Date(b.pickupDateTime);
+                return timeA - timeB;
+            });
+            displayOrders(recentOrders, recentOrdersListDiv, '近期');
+
+            // 顯示所有待處理訂單 (按時間排序)
+            allPendingOrders.sort((a, b) => {
+                const timeA = a.needsDelivery ? new Date(a.deliveryTime) : new Date(a.pickupDateTime);
+                const timeB = b.needsDelivery ? new Date(b.deliveryTime) : new Date(b.pickupDateTime);
+                return timeA - timeB;
+            });
+            displayOrders(allPendingOrders, allPendingOrdersListDiv, '所有待處理');
 
         } catch (error) {
             console.error('獲取儀表板數據失敗：', error);
-            alert('載入儀表板數據失敗：' + error.message);
-            recentOrdersListDiv.innerHTML = '<p>載入失敗。</p>';
-            allPendingOrdersListDiv.innerHTML = '<p>載入失敗。</p>';
+            recentOrdersListDiv.innerHTML = '<p>載入數據失敗。</p>';
+            allPendingOrdersListDiv.innerHTML = '<p>載入數據失敗。</p>';
         }
     }
 
-    // 輔助函數：顯示訂單列表
-    function displayOrders(orders, containerDiv) {
+    function displayOrders(orders, containerDiv, type) {
         if (orders.length === 0) {
-            containerDiv.innerHTML = '<p>沒有相關訂單。</p>';
+            containerDiv.innerHTML = `<p>沒有${type}訂單。</p>`;
             return;
         }
 
-        let table = '<table><thead><tr><th>ID</th><th>客戶</th><th>電話</th><th>取貨/送貨時間</th><th>狀態</th><th>操作</th></tr></thead><tbody>';
+        let table = `
+            <table>
+                <thead>
+                    <tr>
+                        <th>訂單ID</th>
+                        <th>客戶</th>
+                        <th>品項</th>
+                        <th>總金額</th>
+                        <th>狀態</th>
+                        <th>取/送貨時間</th>
+                        <th>操作</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+
         orders.forEach(order => {
-            const pickupOrDeliveryTime = order.needsDelivery && order.deliveryTime
-                ? order.deliveryTime.toDate().toLocaleString()
-                : (order.pickupDateTime ? order.pickupDateTime.toDate().toLocaleString() : 'N/A');
+            const itemSummary = order.items.map(item => `${item.cakeType.name} (${item.quantity})`).join(', ');
+            const dateTime = order.needsDelivery
+                ? new Date(order.deliveryTime).toLocaleString()
+                : new Date(order.pickupDateTime).toLocaleString();
 
             table += `
                 <tr>
-                    <td>${order.displayId || order.id.substring(0, 6).toUpperCase()}</td>
+                    <td>${order.id}</td>
                     <td>${order.customerName}</td>
-                    <td>${order.customerPhone}</td>
-                    <td>${pickupOrDeliveryTime}</td>
-                    <td>${order.orderStatus}</td>
+                    <td>${itemSummary}</td>
+                    <td>${order.totalAmount}</td>
+                    <td class="order-status ${order.orderStatus.replace(/\s+/g, '-')}">${order.orderStatus}</td>
+                    <td>${dateTime}</td>
                     <td>
                         <button class="edit-btn" data-id="${order.id}">編輯</button>
-                        ${order.orderStatus !== '已取貨/送達' ? `<button class="mark-completed-btn" data-id="${order.id}">完成</button>` : ''}
+                        ${order.orderStatus !== '已取貨/送達' && order.orderStatus !== '已取消' ? `<button class="mark-completed-btn" data-id="${order.id}">完成</button>` : ''}
                     </td>
                 </tr>
             `;
