@@ -1,0 +1,91 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鳳城麵包店蛋糕訂單系統 - 新增訂單</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="navbar">
+       <div class="site-title">鳳城麵包店訂單系統</div> <nav>
+            <a href="index.html" class="active">新增訂單</a>
+            <a href="manage.html">訂單管理</a>
+            <a href="dashboard.html">工作台</a>
+            <a href="products.html">品項管理</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1>新增蛋糕訂單</h1>
+
+        <form id="orderForm">
+            <div id="orderItemsContainer">
+                <h2>蛋糕品項 <button type="button" id="addItemBtn">＋ 增加品項</button></h2>
+                </div>
+
+            <div class="summary-section">
+                <p><strong>預估總金額：</strong> <span id="totalAmountDisplay">0</span> 元</p>
+            </div>
+
+            <div class="customer-info-section">
+                <h2>客戶資訊</h2>
+                <label for="customerName">客戶貴姓：</label>
+                <input type="text" id="customerName" required>
+                <span id="nameSuffix"></span><br><br>
+
+                <label for="customerGender">稱謂：</label>
+                <select id="customerGender" required>
+                    <option value="">請選擇</option>
+                    <option value="先生">先生</option>
+                    <option value="小姐">小姐</option>
+                    <option value="女士">女士</option>
+                    <option value="先生/女士">先生/女士 (不確定)</option>
+                </select><br><br>
+
+                <label for="customerPhone">客戶電話：</label>
+                <input type="tel" id="customerPhone" pattern="[0-9]{10}" placeholder="0912345678" required><br><br>
+                
+                <label for="paymentStatus">付款狀態：</label>
+                <select id="paymentStatus" required>
+                    <option value="已付款">已付款</option>
+                    <option value="未付款">未付款</option>
+                </select><br><br>
+
+                <label for="needsDelivery">是否需送貨：</label>
+                <input type="checkbox" id="needsDelivery"><br><br>
+
+                <div id="deliveryInfo" style="display: none;">
+                    <label for="deliveryAddress">送貨地址：</label>
+                    <input type="text" id="deliveryAddress"><br><br>
+
+                    <label for="deliveryTime">送貨抵達時間：</label>
+                    <input type="datetime-local" id="deliveryTime"><br><br>
+                </div>
+
+                <div id="pickupInfo">
+                    <label for="pickupTime">取貨時間：</label>
+                    <input type="datetime-local" id="pickupTime" required><br><br>
+                </div>
+                
+                <label for="notes">備註：</label>
+                <textarea id="notes" rows="4" cols="50"></textarea><br><br>
+            </div>
+
+            <button type="submit">確認訂單</button>
+        </form>
+
+        <div id="orderConfirmation" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>請確認訂單資訊</h2>
+                <div id="confirmationDetails"></div>
+                <button id="confirmOrderBtn">確認送出</button>
+                <button id="editOrderBtn">編輯</button>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="firebase-init.js"></script>
+    <script type="module" src="script.js"></script>
+</body>
+</html>
