@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>鳳城麵包店蛋糕訂單系統 - 訂單管理</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <header class="navbar">
+      <div class="site-title">鳳城麵包店訂單系統</div>  <nav>
+            <a href="index.html">新增訂單</a>
+            <a href="manage.html" class="active">訂單管理</a>
+            <a href="dashboard.html">工作台</a>
+            <a href="products.html">品項管理</a>
+        </nav>
+    </header>
+
+    <div class="container">
+        <h1>訂單管理</h1>
+
+        <div id="orderListContainer">
+            <p>載入訂單中...</p>
+        </div>
+
+        <div id="editOrderModal" class="modal" style="display: none;">
+            <div class="modal-content">
+                <h2>編輯訂單 <span id="editOrderIdDisplay"></span></h2>
+                <form id="editOrderForm">
+                    <div id="editOrderItemsContainer">
+                        <h3>蛋糕品項</h3>
+                        </div>
+                    
+                    <div class="summary-section">
+                        <p><strong>總金額：</strong> <span id="editTotalAmountDisplay">0</span> 元</p>
+                    </div>
+
+                    <h2>客戶資訊</h2>
+                    <label for="editCustomerName">客戶貴姓：</label>
+                    <input type="text" id="editCustomerName" required><br><br>
+
+                    <label for="editCustomerPhone">客戶電話：</label>
+                    <input type="tel" id="editCustomerPhone" required><br><br>
+
+                    <label for="editCustomerGender">客戶稱謂：</label>
+                    <select id="editCustomerGender">
+                        <option value="先生">先生</option>
+                        <option value="小姐">小姐</option>
+                        <option value="女士">女士</option>
+                        <option value="小姐/先生">小姐/先生</option>
+                    </select><br><br>
+
+                    <label for="editPaymentStatus">付款狀態：</label>
+                    <select id="editPaymentStatus" required>
+                        <option value="已付款">已付款</option>
+                        <option value="未付款">未付款</option>
+                    </select><br><br>
+
+                    <label for="editNeedsDelivery">是否需送貨：</label>
+                    <input type="checkbox" id="editNeedsDelivery"><br><br>
+
+                    <div id="editDeliveryInfo">
+                        <label for="editDeliveryAddress">送貨地址：</label>
+                        <input type="text" id="editDeliveryAddress"><br><br>
+
+                        <label for="editDeliveryTime">送貨抵達時間：</label>
+                        <input type="datetime-local" id="editDeliveryTime"><br><br>
+                    </div>
+
+                    <div id="editPickupInfo">
+                        <label for="editPickupTime">取貨時間：</label>
+                        <input type="datetime-local" id="editPickupTime"><br><br>
+                    </div>
+                    
+                    <label for="editNotes">備註：</label>
+                    <textarea id="editNotes" rows="4" cols="50"></textarea><br><br>
+
+                    <label for="editOrderStatus">訂單狀態：</label>
+                    <select id="editOrderStatus" required>
+                        <option value="尚未製作">尚未製作</option>
+                        <option value="製作中">製作中</option>
+                        <option value="已完成">已完成</option>
+                        <option value="已取貨/送達">已取貨/送達</option>
+                        <option value="已取消">已取消</option>
+                    </select><br><br>
+
+                    <button type="submit">儲存修改</button>
+                    <button type="button" id="cancelEditBtn">取消</button>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script type="module" src="firebase-init.js"></script>
+    <script type="module" src="manage.js"></script>
+</body>
+</html>
